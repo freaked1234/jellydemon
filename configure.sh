@@ -3,20 +3,18 @@
 # JellyDemon Interactive Configuration Setup
 # Called by the main installer or can be run standalone
 
-set -e
+set -euo pipefail
+IFS=$'\n\t'
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m' # No Color
-
-CONFIG_FILE="$1"
-if [ -z "$CONFIG_FILE" ]; then
-    CONFIG_FILE="config.yml"
+# Colors for output (TTY only)
+if [ -t 1 ]; then
+  RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+  BLUE='\033[0;34m'; CYAN='\033[0;36m'; NC='\033[0m'
+else
+  RED=''; GREEN=''; YELLOW=''; BLUE=''; CYAN=''; NC=''
 fi
+
+CONFIG_FILE="${1:-config.yml}"
 
 echo -e "${BLUE}⚙️  JellyDemon Configuration Setup${NC}"
 echo -e "${BLUE}===================================${NC}"
@@ -25,52 +23,69 @@ echo "This setup will guide you through configuring JellyDemon for your Jellyfin
 echo "You can always edit the configuration later by running: jellydemon config"
 echo ""
 
-# Function to prompt for input with default
-prompt_with_default() {
-    local prompt="$1"
-    local default="$2"
-    local explanation="$3"
-    
-    # Print explanation to stderr so it doesn't get captured
-    echo -e "${CYAN}$explanation${NC}" >&2
-    echo "" >&2
-    if [ -n "$default" ]; then
-        read -p "$prompt [$default]: " value
-        # Return only the clean value without any color codes
-        printf "%s" "${value:-$default}"
-    else
-        read -p "$prompt: " value
-        # Return only the clean value without any color codes
-        printf "%s" "$value"
-    fi
+# --- Helpers ---------------------------------------------------------------
+
+strip_ansi_and_ctrl() {
+  # strips ANSI escapes and trims CR/LF from a single line
+  # stdin -> stdout
+  sed -e 's/\x1b\[[0-9;]*m//g' -e 's/\r//g' -e 's/[\x00-\x08\x0B\x0C\x0E-\x1F]//g'
 }
 
-# Function to prompt for yes/no with default
-prompt_yes_no() {
-    local prompt="$1"
-    local default="$2"
-    local explanation="$3"
-    
-    # Print explanation to stderr so it doesn't get captured
+prompt_with_default() {
+  local prompt="$1" default="${2-}" explanation="${3-}" value=""
+  # Print explanation to stderr so it doesn't get captured
+  if [ -n "$explanation" ]; then
     echo -e "${CYAN}$explanation${NC}" >&2
     echo "" >&2
-    
-    while true; do
-        if [ "$default" = "true" ]; then
-            read -p "$prompt [Y/n]: " yn
-            yn=${yn:-Y}
-        else
-            read -p "$prompt [y/N]: " yn
-            yn=${yn:-N}
-        fi
-        
-        case $yn in
-            [Yy]* ) printf "true"; break;;
-            [Nn]* ) printf "false"; break;;
-            * ) echo "Please answer yes or no." >&2;;
-        esac
-    done
+  fi
+  if [ -n "$default" ]; then
+    read -r -p "$prompt [$default]: " value
+    printf "%s" "${value:-$default}" | strip_ansi_and_ctrl
+  else
+    read -r -p "$prompt: " value
+    printf "%s" "$value" | strip_ansi_and_ctrl
+  fi
 }
+
+prompt_yes_no() {
+  local prompt="$1" default="${2-}" explanation="${3-}" yn=""
+  if [ -n "$explanation" ]; then
+    echo -e "${CYAN}$explanation${NC}" >&2
+    echo "" >&2
+  fi
+  while true; do
+    if [ "${default,,}" = "true" ]; then
+      read -r -p "$prompt [Y/n]: " yn; yn=${yn:-Y}
+    else
+      read -r -p "$prompt [y/N]: " yn; yn=${yn:-N}
+    fi
+    case "$yn" in
+      [Yy]* ) printf "true"; break;;
+      [Nn]* ) printf "false"; break;;
+      * ) echo "Please answer yes or no." >&2;;
+    esac
+  done
+}
+
+sanitize_file_inplace() {
+  local f="$1"
+  # Prefer dos2unix if available
+  if command -v dos2unix >/dev/null 2>&1; then
+    dos2unix -q "$f" || true
+  else
+    # Strip CR at EOL
+    sed -i 's/\r$//' "$f"
+  fi
+  # Remove BOM, zero-width spaces, NBSP; keep ASCII printable + TAB + LF
+  # If perl exists, do a precise sweep:
+  if command -v perl >/dev/null 2>&1; then
+    perl -CS -i -pe 's/\x{FEFF}//g; s/\x{200B}//g; s/\x{200C}//g; s/\x{200D}//g; s/\x{00A0}/ /g' "$f"
+  fi
+  # Final ASCII keep-filter (TAB 0x09, LF 0x0A, space..tilde):
+  LC_ALL=C tr -cd '\11\12\40-\176' < "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+}
+
+# --- Prompts ---------------------------------------------------------------
 
 echo -e "${YELLOW}📊 Step 1: Jellyfin Server Configuration${NC}"
 echo "========================================"
@@ -101,10 +116,9 @@ echo ""
 
 JELLYFIN_API_KEY=$(prompt_with_default "Jellyfin API Key" "" \
 "Paste your Jellyfin API key here (required for JellyDemon to work)")
-
 while [ -z "$JELLYFIN_API_KEY" ]; do
-    echo -e "${RED}API key is required! Please create one in Jellyfin and enter it here.${NC}"
-    JELLYFIN_API_KEY=$(prompt_with_default "Jellyfin API Key" "" "")
+  echo -e "${RED}API key is required! Please create one in Jellyfin and enter it here.${NC}"
+  JELLYFIN_API_KEY=$(prompt_with_default "Jellyfin API Key" "" "")
 done
 
 echo ""
@@ -141,32 +155,20 @@ echo ""
 TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" \
 "Enter your maximum upload bandwidth in Mbps (check with speedtest.net)")
 
-# Simple validation - just check if it's a number and reasonable range
+# Validation
 while true; do
-    # Check if empty
-    if [ -z "$TOTAL_UPLOAD_MBPS" ]; then
-        echo -e "${RED}Please enter a number${NC}"
-        TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" "")
-        continue
-    fi
-    
-    # Simple check: is it a number?
-    case "$TOTAL_UPLOAD_MBPS" in
-        ''|*[!0-9.]*) 
-            echo -e "${RED}Please enter a valid number (e.g., 25 or 25.5)${NC}"
-            TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" "")
-            continue
-            ;;
-        *.*.*) 
-            echo -e "${RED}Please enter a valid number (e.g., 25 or 25.5)${NC}"
-            TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" "")
-            continue
-            ;;
-        *) 
-            # It's a valid number format, accept it
-            break
-            ;;
-    esac
+  if [ -z "$TOTAL_UPLOAD_MBPS" ]; then
+    echo -e "${RED}Please enter a number${NC}"
+    TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" "")
+    continue
+  fi
+  case "$TOTAL_UPLOAD_MBPS" in
+    ''|*[!0-9.]*|*.*.*) 
+      echo -e "${RED}Please enter a valid number (e.g., 25 or 25.5)${NC}"
+      TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" "")
+      ;;
+    *) break ;;
+  esac
 done
 
 BANDWIDTH_ALGORITHM=$(prompt_with_default "Bandwidth Algorithm" "equal_split" \
@@ -199,18 +201,29 @@ Recommended: Keep enabled unless you specifically need real usernames in logs.")
 echo ""
 echo -e "${GREEN}✍️  Creating configuration file...${NC}"
 
-# Clean all variables of any potential ANSI escape sequences before writing to config
-CLEAN_JELLYFIN_HOST=$(echo "$JELLYFIN_HOST" | sed 's/\x1b\[[0-9;]*m//g' | tr -d '\r\n')
-CLEAN_JELLYFIN_PORT=$(echo "$JELLYFIN_PORT" | sed 's/\x1b\[[0-9;]*m//g' | tr -d '\r\n')
-CLEAN_JELLYFIN_API_KEY=$(echo "$JELLYFIN_API_KEY" | sed 's/\x1b\[[0-9;]*m//g' | tr -d '\r\n')
-CLEAN_INTERNAL_RANGES=$(echo "$INTERNAL_RANGES" | sed 's/\x1b\[[0-9;]*m//g' | tr -d '\r\n')
-CLEAN_TOTAL_UPLOAD_MBPS=$(echo "$TOTAL_UPLOAD_MBPS" | sed 's/\x1b\[[0-9;]*m//g' | tr -d '\r\n')
-CLEAN_BANDWIDTH_ALGORITHM=$(echo "$BANDWIDTH_ALGORITHM" | sed 's/\x1b\[[0-9;]*m//g' | tr -d '\r\n')
-CLEAN_DRY_RUN=$(echo "$DRY_RUN" | sed 's/\x1b\[[0-9;]*m//g' | tr -d '\r\n')
-CLEAN_ANONYMIZE_LOGS=$(echo "$ANONYMIZE_LOGS" | sed 's/\x1b\[[0-9;]*m//g' | tr -d '\r\n')
+# Clean variables (defensive)
+CLEAN_JELLYFIN_HOST=$(printf "%s" "$JELLYFIN_HOST" | strip_ansi_and_ctrl)
+CLEAN_JELLYFIN_PORT=$(printf "%s" "$JELLYFIN_PORT" | strip_ansi_and_ctrl)
+CLEAN_JELLYFIN_API_KEY=$(printf "%s" "$JELLYFIN_API_KEY" | strip_ansi_and_ctrl)
+CLEAN_INTERNAL_RANGES=$(printf "%s" "$INTERNAL_RANGES" | strip_ansi_and_ctrl)
+CLEAN_TOTAL_UPLOAD_MBPS=$(printf "%s" "$TOTAL_UPLOAD_MBPS" | strip_ansi_and_ctrl)
+CLEAN_BANDWIDTH_ALGORITHM=$(printf "%s" "$BANDWIDTH_ALGORITHM" | strip_ansi_and_ctrl)
+CLEAN_DRY_RUN=$(printf "%s" "$DRY_RUN" | strip_ansi_and_ctrl)
+CLEAN_ANONYMIZE_LOGS=$(printf "%s" "$ANONYMIZE_LOGS" | strip_ansi_and_ctrl)
 
-# Create the configuration file
-cat > "$CONFIG_FILE" << EOF
+# Build internal_ranges block safely
+build_ranges() {
+  local csv="$1" IFS=','; read -r -a arr <<< "$csv"
+  for net in "${arr[@]}"; do
+    # trim spaces
+    net="${net#"${net%%[![:space:]]*}"}"; net="${net%"${net##*[![:space:]]}"}"
+    printf '    - "%s"\n' "$net"
+  done
+}
+
+# Write YAML through a sanitizing pipe:
+{
+cat <<EOF
 # JellyDemon Configuration
 # Generated by interactive setup on $(date)
 
@@ -222,25 +235,24 @@ jellyfin:
 
 network:
   internal_ranges:
-$(echo "$CLEAN_INTERNAL_RANGES" | sed 's/,/\n/g' | sed 's/^/    - "/' | sed 's/$/"/')
-
+$(build_ranges "$CLEAN_INTERNAL_RANGES")
 bandwidth:
   total_upload_mbps: $CLEAN_TOTAL_UPLOAD_MBPS
   algorithm: "$CLEAN_BANDWIDTH_ALGORITHM"
-  
+
   # Algorithm-specific settings
   equal_split:
     min_per_user_mbps: 1.0
-    
+
   priority_based:
     admin_multiplier: 2.0
     premium_multiplier: 1.5
     default_mbps: 3.0
-    
+
   demand_based:
     quality_limits:
       "4K": 25.0
-      "1080p": 8.0 
+      "1080p": 8.0
       "720p": 4.0
       "480p": 2.0
 
@@ -250,12 +262,16 @@ daemon:
   log_level: "INFO"
   log_file: "jellydemon.log"
   pid_file: "jellydemon.pid"
-  
+
   # Privacy settings
   anonymize_logs: $CLEAN_ANONYMIZE_LOGS
   save_anonymization_map: true
   anonymization_map_file: "anonymization_map.json"
 EOF
+} | tr -d '\r' > "$CONFIG_FILE"
+
+# Final sweep to nuke any weird bytes
+sanitize_file_inplace "$CONFIG_FILE"
 
 echo -e "${GREEN}✅ Configuration file created: $CONFIG_FILE${NC}"
 echo ""
@@ -269,54 +285,50 @@ echo "  Log Anonymization: $ANONYMIZE_LOGS"
 echo ""
 echo -e "${YELLOW}⚠️  Important Notes:${NC}"
 if [ "$DRY_RUN" = "true" ]; then
-    echo "• Dry-run mode is ENABLED - no actual bandwidth limits will be applied"
-    echo "• Test thoroughly, then edit config.yml and set 'dry_run: false'"
+  echo "• Dry-run mode is ENABLED - no actual bandwidth limits will be applied"
+  echo "• Test thoroughly, then edit config.yml and set 'dry_run: false'"
 fi
 echo "• You can edit the configuration anytime: jellydemon config"
 echo "• Test your setup with: jellydemon test"
 echo ""
 
-# Service management section
+# Service management
 echo -e "${YELLOW}🚀 Step 6: Service Management${NC}"
 echo "============================="
 
-# Check if we're in the installation context (script was called from installer)
-# Only offer service management if systemd is available and we have permissions
 if command -v systemctl >/dev/null 2>&1; then
-    ENABLE_AUTOSTART=$(prompt_yes_no "Enable JellyDemon to start automatically on boot?" "true" \
-    "This will enable the JellyDemon systemd service to start automatically when your system boots.
-    Recommended for production setups where you want JellyDemon running continuously.")
-    
-    if [ "$ENABLE_AUTOSTART" = "true" ]; then
-        echo "🔧 Enabling JellyDemon service for autostart..."
-        if sudo systemctl enable jellydemon >/dev/null 2>&1; then
-            echo -e "${GREEN}✅ JellyDemon will start automatically on boot${NC}"
-        else
-            echo -e "${YELLOW}⚠️  Could not enable autostart (may need to run: sudo systemctl enable jellydemon)${NC}"
-        fi
+  ENABLE_AUTOSTART=$(prompt_yes_no "Enable JellyDemon to start automatically on boot?" "true" \
+"This will enable the JellyDemon systemd service to start automatically when your system boots.
+Recommended for production setups where you want JellyDemon running continuously.")
+  if [ "$ENABLE_AUTOSTART" = "true" ]; then
+    echo "🔧 Enabling JellyDemon service for autostart..."
+    if sudo systemctl enable jellydemon >/dev/null 2>&1; then
+      echo -e "${GREEN}✅ JellyDemon will start automatically on boot${NC}"
+    else
+      echo -e "${YELLOW}⚠️  Could not enable autostart (may need to run: sudo systemctl enable jellydemon)${NC}"
     fi
-    
-    echo ""
-    START_NOW=$(prompt_yes_no "Start JellyDemon service now?" "true" \
-    "This will start the JellyDemon service immediately so you can test your configuration.
-    You can always start/stop it later with: jellydemon start/stop")
-    
-    if [ "$START_NOW" = "true" ]; then
-        echo "🚀 Starting JellyDemon service..."
-        if sudo systemctl start jellydemon >/dev/null 2>&1; then
-            echo -e "${GREEN}✅ JellyDemon service started successfully${NC}"
-            echo ""
-            echo "🔍 Service status:"
-            sudo systemctl --no-pager status jellydemon
-        else
-            echo -e "${RED}❌ Failed to start JellyDemon service${NC}"
-            echo "You can try starting it manually with: sudo systemctl start jellydemon"
-            echo "Check logs with: sudo journalctl -u jellydemon -f"
-        fi
+  fi
+
+  echo ""
+  START_NOW=$(prompt_yes_no "Start JellyDemon service now?" "true" \
+"This will start the JellyDemon service immediately so you can test your configuration.
+You can always start/stop it later with: jellydemon start/stop")
+  if [ "$START_NOW" = "true" ]; then
+    echo "🚀 Starting JellyDemon service..."
+    if sudo systemctl start jellydemon >/dev/null 2>&1; then
+      echo -e "${GREEN}✅ JellyDemon service started successfully${NC}"
+      echo ""
+      echo "🔍 Service status:"
+      sudo systemctl --no-pager status jellydemon
+    else
+      echo -e "${RED}❌ Failed to start JellyDemon service${NC}"
+      echo "You can try starting it manually with: sudo systemctl start jellydemon"
+      echo "Check logs with: sudo journalctl -u jellydemon -f"
     fi
+  fi
 else
-    echo -e "${YELLOW}⚠️  Systemd not available - service management not supported${NC}"
-    echo "To start JellyDemon manually, run: jellydemon start"
+  echo -e "${YELLOW}⚠️  Systemd not available - service management not supported${NC}"
+  echo "To start JellyDemon manually, run: jellydemon start"
 fi
 
 echo ""
