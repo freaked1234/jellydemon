@@ -46,32 +46,32 @@ install_python() {
         if command -v apt &> /dev/null; then
             echo "📦 Using apt package manager..."
             sudo apt update
-            sudo apt install -y python3 python3-pip python3-venv git curl
+            sudo apt install -y python3 python3-pip python3-venv
         elif command -v yum &> /dev/null; then
             echo "📦 Using yum package manager..."
-            sudo yum install -y python3 python3-pip git curl
+            sudo yum install -y python3 python3-pip
         elif command -v dnf &> /dev/null; then
             echo "📦 Using dnf package manager..."
-            sudo dnf install -y python3 python3-pip git curl
+            sudo dnf install -y python3 python3-pip
         elif command -v pacman &> /dev/null; then
             echo "📦 Using pacman package manager..."
-            sudo pacman -S --noconfirm python python-pip git curl
+            sudo pacman -S --noconfirm python python-pip
         elif command -v zypper &> /dev/null; then
             echo "📦 Using zypper package manager..."
-            sudo zypper install -y python3 python3-pip git curl
+            sudo zypper install -y python3 python3-pip
         elif command -v apk &> /dev/null; then
             echo "📦 Using apk package manager..."
-            sudo apk add --no-cache python3 py3-pip git curl
+            sudo apk add --no-cache python3 py3-pip
         else
             echo -e "${RED}❌ Could not detect package manager.${NC}"
             echo "Please install Python 3.8+ manually and re-run this installer."
             echo ""
             echo "Installation commands for common distributions:"
-            echo "  Ubuntu/Debian: sudo apt install python3 python3-pip git curl"
-            echo "  CentOS/RHEL:   sudo yum install python3 python3-pip git curl"
-            echo "  Fedora:        sudo dnf install python3 python3-pip git curl"
-            echo "  Arch Linux:    sudo pacman -S python python-pip git curl"
-            echo "  Alpine:        sudo apk add python3 py3-pip git curl"
+            echo "  Ubuntu/Debian: sudo apt install python3 python3-pip"
+            echo "  CentOS/RHEL:   sudo yum install python3 python3-pip"
+            echo "  Fedora:        sudo dnf install python3 python3-pip"
+            echo "  Arch Linux:    sudo pacman -S python python-pip"
+            echo "  Alpine:        sudo apk add python3 py3-pip"
             exit 1
         fi
         
@@ -80,11 +80,11 @@ install_python() {
         echo -e "${YELLOW}⚠️  Please install Python 3.8+ manually and re-run this installer.${NC}"
         echo ""
         echo "Installation commands for common distributions:"
-        echo "  Ubuntu/Debian: sudo apt install python3 python3-pip git curl"
-        echo "  CentOS/RHEL:   sudo yum install python3 python3-pip git curl"
-        echo "  Fedora:        sudo dnf install python3 python3-pip git curl"
-        echo "  Arch Linux:    sudo pacman -S python python-pip git curl"
-        echo "  Alpine:        sudo apk add python3 py3-pip git curl"
+        echo "  Ubuntu/Debian: sudo apt install python3 python3-pip"
+        echo "  CentOS/RHEL:   sudo yum install python3 python3-pip"
+        echo "  Fedora:        sudo dnf install python3 python3-pip"
+        echo "  Arch Linux:    sudo pacman -S python python-pip"
+        echo "  Alpine:        sudo apk add python3 py3-pip"
         exit 1
     fi
 }
@@ -115,7 +115,7 @@ if [ ${#missing_tools[@]} -gt 0 ]; then
     if [[ $install_tools =~ ^[Yy]$ ]]; then
         echo "🔧 Installing missing tools..."
         
-        # Detect package manager and install tools
+        # Detect package manager and install tools (excluding Python)
         if command -v apt &> /dev/null; then
             sudo apt update
             sudo apt install -y ${missing_tools[*]}
@@ -211,8 +211,60 @@ else
 fi
 
 # Create installation directory
-echo "📁 Creating installation directory..."
-sudo mkdir -p "$INSTALL_DIR"
+echo "📁 Setting up installation directory..."
+
+# Check if installation directory already exists
+if [ -d "$INSTALL_DIR" ]; then
+    echo -e "${YELLOW}⚠️  JellyDemon installation already exists at $INSTALL_DIR${NC}"
+    echo ""
+    echo "What would you like to do?"
+    echo "1. Fresh install (removes existing installation)"
+    echo "2. Update installation (keeps config if it exists)"
+    echo "3. Cancel installation"
+    echo ""
+    read -p "Choose an option [1/2/3]: " install_choice
+    
+    case $install_choice in
+        1)
+            echo "🗑️  Removing existing installation..."
+            if systemctl is-active --quiet jellydemon 2>/dev/null; then
+                echo "🛑 Stopping JellyDemon service..."
+                sudo systemctl stop jellydemon
+            fi
+            
+            # Backup config if it exists
+            if [ -f "$INSTALL_DIR/config.yml" ]; then
+                echo "💾 Backing up existing config to /tmp/jellydemon-config-backup.yml..."
+                sudo cp "$INSTALL_DIR/config.yml" "/tmp/jellydemon-config-backup.yml"
+                echo -e "${GREEN}✅ Config backed up to /tmp/jellydemon-config-backup.yml${NC}"
+            fi
+            
+            sudo rm -rf "$INSTALL_DIR"
+            echo -e "${GREEN}✅ Fresh install selected${NC}"
+            FRESH_INSTALL=true
+            ;;
+        2)
+            echo "🔄 Update installation selected"
+            echo -e "${GREEN}✅ Existing config will be preserved${NC}"
+            UPDATE_INSTALL=true
+            ;;
+        3)
+            echo "❌ Installation cancelled"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}❌ Invalid choice. Installation cancelled.${NC}"
+            exit 1
+            ;;
+    esac
+else
+    FRESH_INSTALL=true
+fi
+
+# Create installation directory if needed
+if [ "$FRESH_INSTALL" = true ]; then
+    sudo mkdir -p "$INSTALL_DIR"
+fi
 sudo chown "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
 # Clone repository
@@ -230,7 +282,43 @@ sudo -u "$SERVICE_USER" python3 -m pip install --user -r "$INSTALL_DIR/requireme
 
 # Interactive configuration setup
 echo "⚙️  Setting up configuration..."
-if [ ! -f "$INSTALL_DIR/config.yml" ]; then
+
+# Handle configuration based on installation type
+if [ "$UPDATE_INSTALL" = true ] && [ -f "$INSTALL_DIR/config.yml" ]; then
+    echo -e "${GREEN}✅ Existing configuration found and preserved${NC}"
+    echo "Current config: $INSTALL_DIR/config.yml"
+    echo ""
+    read -p "Would you like to update your configuration? [y/N]: " update_config
+    update_config=${update_config:-N}
+    
+    if [[ $update_config =~ ^[Yy]$ ]]; then
+        echo "🔄 Running configuration wizard to update settings..."
+        sudo -u "$SERVICE_USER" bash "$INSTALL_DIR/configure.sh" "$INSTALL_DIR/config.yml"
+    else
+        echo -e "${BLUE}💡 To update config later, run: jellydemon reconfigure${NC}"
+    fi
+elif [ "$FRESH_INSTALL" = true ] && [ -f "/tmp/jellydemon-config-backup.yml" ]; then
+    echo -e "${BLUE}💾 Found backed up configuration${NC}"
+    echo ""
+    read -p "Would you like to restore your previous config? [Y/n]: " restore_config
+    restore_config=${restore_config:-Y}
+    
+    if [[ $restore_config =~ ^[Yy]$ ]]; then
+        sudo cp "/tmp/jellydemon-config-backup.yml" "$INSTALL_DIR/config.yml"
+        sudo chown "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR/config.yml"
+        echo -e "${GREEN}✅ Previous configuration restored${NC}"
+        echo ""
+        read -p "Would you like to review/update the restored config? [y/N]: " review_config
+        review_config=${review_config:-N}
+        
+        if [[ $review_config =~ ^[Yy]$ ]]; then
+            sudo -u "$SERVICE_USER" bash "$INSTALL_DIR/configure.sh" "$INSTALL_DIR/config.yml"
+        fi
+    else
+        echo "🆕 Setting up fresh configuration..."
+        sudo -u "$SERVICE_USER" bash "$INSTALL_DIR/configure.sh" "$INSTALL_DIR/config.yml"
+    fi
+elif [ ! -f "$INSTALL_DIR/config.yml" ]; then
     echo ""
     echo -e "${BLUE}🎯 Interactive Configuration Setup${NC}"
     echo "We'll now configure JellyDemon for your Jellyfin server."

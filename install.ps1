@@ -141,11 +141,66 @@ if (Test-Path $InstallPath) {
     }
 }
 
-New-Item -ItemType Directory -Path $InstallPath -Force | Out-Null
+# Check for existing installation
+Write-Host "📁 Setting up installation directory..."
+if (Test-Path $InstallPath) {
+    Write-Host "${Yellow}⚠️  JellyDemon installation already exists at $InstallPath${Reset}"
+    Write-Host ""
+    Write-Host "What would you like to do?"
+    Write-Host "1. Fresh install (removes existing installation)"
+    Write-Host "2. Update installation (keeps config if it exists)"
+    Write-Host "3. Cancel installation"
+    Write-Host ""
+    
+    do {
+        $installChoice = Read-Host "Choose an option [1/2/3]"
+    } while ($installChoice -notin @("1", "2", "3"))
+    
+    switch ($installChoice) {
+        "1" {
+            Write-Host "🗑️  Removing existing installation..."
+            
+            # Backup config if it exists
+            $configPath = Join-Path $InstallPath "config.yml"
+            $backupPath = "$env:TEMP\jellydemon-config-backup.yml"
+            if (Test-Path $configPath) {
+                Write-Host "💾 Backing up existing config to $backupPath..."
+                Copy-Item $configPath $backupPath -Force
+                Write-Host "${Green}✅ Config backed up to $backupPath${Reset}"
+            }
+            
+            Remove-Item -Path $InstallPath -Recurse -Force
+            Write-Host "${Green}✅ Fresh install selected${Reset}"
+            $FreshInstall = $true
+        }
+        "2" {
+            Write-Host "🔄 Update installation selected"
+            Write-Host "${Green}✅ Existing config will be preserved${Reset}"
+            $UpdateInstall = $true
+        }
+        "3" {
+            Write-Host "❌ Installation cancelled"
+            exit 0
+        }
+    }
+} else {
+    $FreshInstall = $true
+}
 
-# Clone repository
+# Create installation directory if needed
+if ($FreshInstall) {
+    New-Item -ItemType Directory -Path $InstallPath -Force | Out-Null
+}
+
+# Clone or update repository
 Write-Host "📥 Downloading JellyDemon..."
-git clone https://github.com/freaked1234/jellydemon.git $InstallPath
+if ($UpdateInstall -and (Test-Path (Join-Path $InstallPath ".git"))) {
+    Write-Host "${Yellow}⚠️  Updating existing installation...${Reset}"
+    Set-Location $InstallPath
+    git pull
+} else {
+    git clone https://github.com/freaked1234/jellydemon.git $InstallPath
+}
 
 # Install Python dependencies
 Write-Host "📦 Installing Python dependencies..."
@@ -154,7 +209,45 @@ python -m pip install -r requirements.txt
 
 # Interactive configuration setup
 Write-Host "⚙️  Setting up configuration..."
-if (-not (Test-Path "config.yml")) {
+
+# Handle configuration based on installation type
+$configPath = Join-Path $InstallPath "config.yml"
+$backupConfigPath = "$env:TEMP\jellydemon-config-backup.yml"
+
+if ($UpdateInstall -and (Test-Path $configPath)) {
+    Write-Host "${Green}✅ Existing configuration found and preserved${Reset}"
+    Write-Host "Current config: $configPath"
+    Write-Host ""
+    $updateConfig = Read-Host "Would you like to update your configuration? [y/N]"
+    if ([string]::IsNullOrWhiteSpace($updateConfig)) { $updateConfig = "N" }
+    
+    if ($updateConfig -match '^[Yy]') {
+        Write-Host "🔄 Running configuration wizard to update settings..."
+        & "$InstallPath\configure.ps1" -ConfigFile $configPath
+    } else {
+        Write-Host "${Blue}💡 To update config later, run: jellydemon.ps1 config${Reset}"
+    }
+} elseif ($FreshInstall -and (Test-Path $backupConfigPath)) {
+    Write-Host "${Blue}💾 Found backed up configuration${Reset}"
+    Write-Host ""
+    $restoreConfig = Read-Host "Would you like to restore your previous config? [Y/n]"
+    if ([string]::IsNullOrWhiteSpace($restoreConfig)) { $restoreConfig = "Y" }
+    
+    if ($restoreConfig -match '^[Yy]') {
+        Copy-Item $backupConfigPath $configPath -Force
+        Write-Host "${Green}✅ Previous configuration restored${Reset}"
+        Write-Host ""
+        $reviewConfig = Read-Host "Would you like to review/update the restored config? [y/N]"
+        if ([string]::IsNullOrWhiteSpace($reviewConfig)) { $reviewConfig = "N" }
+        
+        if ($reviewConfig -match '^[Yy]') {
+            & "$InstallPath\configure.ps1" -ConfigFile $configPath
+        }
+    } else {
+        Write-Host "🆕 Setting up fresh configuration..."
+        & "$InstallPath\configure.ps1" -ConfigFile $configPath
+    }
+} elseif (-not (Test-Path $configPath)) {
     Write-Host ""
     Write-Host "${Blue}🎯 Interactive Configuration Setup${Reset}"
     Write-Host "We'll now configure JellyDemon for your Jellyfin server."
@@ -166,12 +259,12 @@ if (-not (Test-Path "config.yml")) {
     
     if ($configureNow -match '^[Yy]') {
         # Run interactive configuration
-        & "$InstallPath\configure.ps1" -ConfigFile "$InstallPath\config.yml"
+        & "$InstallPath\configure.ps1" -ConfigFile $configPath
     } else {
         # Create from example for manual configuration
-        Copy-Item "config.example.yml" "config.yml"
+        Copy-Item (Join-Path $InstallPath "config.example.yml") $configPath
         Write-Host "${Yellow}⚠️  Created config.yml from example - you'll need to edit it manually${Reset}"
-        Write-Host "Edit with: notepad `"$InstallPath\config.yml`""
+        Write-Host "Edit with: notepad `"$configPath`""
     }
 } else {
     Write-Host "${Yellow}⚠️  config.yml already exists, skipping configuration${Reset}"
