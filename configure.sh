@@ -140,51 +140,32 @@ echo ""
 TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" \
 "Enter your maximum upload bandwidth in Mbps (check with speedtest.net)")
 
-# Validate bandwidth input - accept integers and decimals between 0.1 and 1000
+# Simple validation - just check if it's a number and reasonable range
 while true; do
     # Check if empty
     if [ -z "$TOTAL_UPLOAD_MBPS" ]; then
-        echo -e "${RED}Please enter a valid number for bandwidth between 0.1 and 1000 Mbps (e.g., 25 or 25.5)${NC}"
+        echo -e "${RED}Please enter a number${NC}"
         TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" "")
         continue
     fi
     
-    # Clean the input of any potential escape sequences or whitespace
-    TOTAL_UPLOAD_MBPS=$(echo "$TOTAL_UPLOAD_MBPS" | tr -d '\033\[\;0-9m' | tr -d ' \t\n\r')
-    
-    # Check if it's a valid number (integer or decimal)
-    if ! echo "$TOTAL_UPLOAD_MBPS" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
-        echo -e "${RED}Please enter a valid number for bandwidth between 0.1 and 1000 Mbps (e.g., 25 or 25.5)${NC}"
-        TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" "")
-        continue
-    fi
-    
-    # Check if it's in valid range using shell arithmetic (avoid awk)
-    # Convert to integer by multiplying by 10 to handle decimals
-    bandwidth_times_10=$(echo "$TOTAL_UPLOAD_MBPS" | sed 's/\.//' | sed 's/^0*//')
-    if [ -z "$bandwidth_times_10" ]; then
-        bandwidth_times_10=0
-    fi
-    
-    # Check if contains decimal
-    if echo "$TOTAL_UPLOAD_MBPS" | grep -q '\.'; then
-        # Has decimal, value * 10 should be >= 1 (0.1) and <= 10000 (1000.0)
-        if [ "$bandwidth_times_10" -lt 1 ] || [ "$bandwidth_times_10" -gt 10000 ]; then
-            echo -e "${RED}Please enter a bandwidth between 0.1 and 1000 Mbps${NC}"
+    # Simple check: is it a number?
+    case "$TOTAL_UPLOAD_MBPS" in
+        ''|*[!0-9.]*) 
+            echo -e "${RED}Please enter a valid number (e.g., 25 or 25.5)${NC}"
             TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" "")
             continue
-        fi
-    else
-        # No decimal, check integer value directly
-        if [ "$TOTAL_UPLOAD_MBPS" -lt 1 ] || [ "$TOTAL_UPLOAD_MBPS" -gt 1000 ]; then
-            echo -e "${RED}Please enter a bandwidth between 0.1 and 1000 Mbps${NC}"
+            ;;
+        *.*.*) 
+            echo -e "${RED}Please enter a valid number (e.g., 25 or 25.5)${NC}"
             TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" "")
             continue
-        fi
-    fi
-    
-    # All validations passed
-    break
+            ;;
+        *) 
+            # It's a valid number format, accept it
+            break
+            ;;
+    esac
 done
 
 BANDWIDTH_ALGORITHM=$(prompt_with_default "Bandwidth Algorithm" "equal_split" \
