@@ -147,10 +147,21 @@ For example:
 JellyDemon will dynamically allocate this bandwidth among all users currently streaming from outside your network.
 "@
     
-    if (-not ($totalUploadMbps -match '^\d+(\.\d+)?$')) {
-        Write-Host "${Red}Please enter a valid number for bandwidth (e.g., 25 or 25.5)${Reset}"
+    # Check if it's a valid number format
+    if (-not ($totalUploadMbps -match '^[0-9]+(\.[0-9]+)?$')) {
+        Write-Host "${Red}Please enter a valid number for bandwidth between 0.1 and 1000 Mbps (e.g., 25 or 25.5)${Reset}"
         $totalUploadMbps = ""
+        continue
     }
+    
+    # Check if it's in valid range
+    $numValue = [double]$totalUploadMbps
+    if ($numValue -lt 0.1 -or $numValue -gt 1000) {
+        Write-Host "${Red}Please enter a bandwidth between 0.1 and 1000 Mbps${Reset}"
+        $totalUploadMbps = ""
+        continue
+    }
+    
 } while ([string]::IsNullOrWhiteSpace($totalUploadMbps))
 
 $bandwidthAlgorithm = Prompt-WithDefault -Prompt "Bandwidth Algorithm" -Default "equal_split" -Explanation @"

@@ -137,9 +137,31 @@ echo ""
 TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" \
 "Enter your maximum upload bandwidth in Mbps (check with speedtest.net)")
 
-while [ -z "$TOTAL_UPLOAD_MBPS" ] || ! [[ "$TOTAL_UPLOAD_MBPS" =~ ^[0-9]+(\.[0-9]+)?$ ]]; do
-    echo -e "${RED}Please enter a valid number for bandwidth (e.g., 25 or 25.5)${NC}"
-    TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" "")
+# Validate bandwidth input - accept integers and decimals between 0.1 and 1000
+while true; do
+    # Check if empty
+    if [ -z "$TOTAL_UPLOAD_MBPS" ]; then
+        echo -e "${RED}Please enter a valid number for bandwidth between 0.1 and 1000 Mbps (e.g., 25 or 25.5)${NC}"
+        TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" "")
+        continue
+    fi
+    
+    # Check if it's a valid number (integer or decimal)
+    if ! echo "$TOTAL_UPLOAD_MBPS" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
+        echo -e "${RED}Please enter a valid number for bandwidth between 0.1 and 1000 Mbps (e.g., 25 or 25.5)${NC}"
+        TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" "")
+        continue
+    fi
+    
+    # Check if it's in valid range (0.1 to 1000)
+    if ! awk "BEGIN {exit !($TOTAL_UPLOAD_MBPS >= 0.1 && $TOTAL_UPLOAD_MBPS <= 1000)}"; then
+        echo -e "${RED}Please enter a bandwidth between 0.1 and 1000 Mbps${NC}"
+        TOTAL_UPLOAD_MBPS=$(prompt_with_default "Maximum Upload Bandwidth (Mbps)" "" "")
+        continue
+    fi
+    
+    # All validations passed
+    break
 done
 
 BANDWIDTH_ALGORITHM=$(prompt_with_default "Bandwidth Algorithm" "equal_split" \
