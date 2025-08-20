@@ -25,24 +25,180 @@ echo ""
 check_command() {
     if ! command -v $1 &> /dev/null; then
         echo -e "${RED}❌ $1 is required but not installed.${NC}"
-        echo "Please install $1 and try again."
+        return 1
+    fi
+    return 0
+}
+
+# Install Python function
+install_python() {
+    echo ""
+    echo -e "${BLUE}🐍 Python Installation${NC}"
+    echo "Python 3.8+ is required for JellyDemon."
+    echo ""
+    read -p "Would you like to install Python automatically? [Y/n]: " install_python
+    install_python=${install_python:-Y}
+    
+    if [[ $install_python =~ ^[Yy]$ ]]; then
+        echo "🔧 Installing Python..."
+        
+        # Detect package manager and install Python
+        if command -v apt &> /dev/null; then
+            echo "📦 Using apt package manager..."
+            sudo apt update
+            sudo apt install -y python3 python3-pip python3-venv git curl
+        elif command -v yum &> /dev/null; then
+            echo "📦 Using yum package manager..."
+            sudo yum install -y python3 python3-pip git curl
+        elif command -v dnf &> /dev/null; then
+            echo "📦 Using dnf package manager..."
+            sudo dnf install -y python3 python3-pip git curl
+        elif command -v pacman &> /dev/null; then
+            echo "📦 Using pacman package manager..."
+            sudo pacman -S --noconfirm python python-pip git curl
+        elif command -v zypper &> /dev/null; then
+            echo "📦 Using zypper package manager..."
+            sudo zypper install -y python3 python3-pip git curl
+        elif command -v apk &> /dev/null; then
+            echo "📦 Using apk package manager..."
+            sudo apk add --no-cache python3 py3-pip git curl
+        else
+            echo -e "${RED}❌ Could not detect package manager.${NC}"
+            echo "Please install Python 3.8+ manually and re-run this installer."
+            echo ""
+            echo "Installation commands for common distributions:"
+            echo "  Ubuntu/Debian: sudo apt install python3 python3-pip git curl"
+            echo "  CentOS/RHEL:   sudo yum install python3 python3-pip git curl"
+            echo "  Fedora:        sudo dnf install python3 python3-pip git curl"
+            echo "  Arch Linux:    sudo pacman -S python python-pip git curl"
+            echo "  Alpine:        sudo apk add python3 py3-pip git curl"
+            exit 1
+        fi
+        
+        echo -e "${GREEN}✅ Python installation completed${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Please install Python 3.8+ manually and re-run this installer.${NC}"
+        echo ""
+        echo "Installation commands for common distributions:"
+        echo "  Ubuntu/Debian: sudo apt install python3 python3-pip git curl"
+        echo "  CentOS/RHEL:   sudo yum install python3 python3-pip git curl"
+        echo "  Fedora:        sudo dnf install python3 python3-pip git curl"
+        echo "  Arch Linux:    sudo pacman -S python python-pip git curl"
+        echo "  Alpine:        sudo apk add python3 py3-pip git curl"
         exit 1
     fi
 }
 
 echo "🔍 Checking prerequisites..."
-check_command python3
-check_command pip3
-check_command git
-check_command sudo
+
+# Check for basic tools first
+missing_tools=()
+if ! check_command git; then
+    missing_tools+=("git")
+fi
+if ! check_command curl; then
+    missing_tools+=("curl")
+fi
+if ! check_command sudo; then
+    missing_tools+=("sudo")
+fi
+
+# Install missing basic tools
+if [ ${#missing_tools[@]} -gt 0 ]; then
+    echo ""
+    echo -e "${BLUE}🔧 Missing Tools Detection${NC}"
+    echo "The following required tools are missing: ${missing_tools[*]}"
+    echo ""
+    read -p "Would you like to install these tools automatically? [Y/n]: " install_tools
+    install_tools=${install_tools:-Y}
+    
+    if [[ $install_tools =~ ^[Yy]$ ]]; then
+        echo "🔧 Installing missing tools..."
+        
+        # Detect package manager and install tools
+        if command -v apt &> /dev/null; then
+            sudo apt update
+            sudo apt install -y ${missing_tools[*]}
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y ${missing_tools[*]}
+        elif command -v dnf &> /dev/null; then
+            sudo dnf install -y ${missing_tools[*]}
+        elif command -v pacman &> /dev/null; then
+            sudo pacman -S --noconfirm ${missing_tools[*]}
+        elif command -v zypper &> /dev/null; then
+            sudo zypper install -y ${missing_tools[*]}
+        elif command -v apk &> /dev/null; then
+            sudo apk add --no-cache ${missing_tools[*]}
+        else
+            echo -e "${RED}❌ Could not detect package manager.${NC}"
+            echo "Please install these tools manually: ${missing_tools[*]}"
+            exit 1
+        fi
+        
+        echo -e "${GREEN}✅ Tools installation completed${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Please install these tools manually: ${missing_tools[*]}${NC}"
+        exit 1
+    fi
+fi
+
+# Check for Python
+if ! check_command python3; then
+    install_python
+fi
+
+# Check for pip (might be separate package on some systems)
+if ! check_command pip3 && ! python3 -m pip --version &>/dev/null; then
+    echo -e "${YELLOW}⚠️  pip not found, installing...${NC}"
+    if command -v apt &> /dev/null; then
+        sudo apt install -y python3-pip
+    elif command -v yum &> /dev/null; then
+        sudo yum install -y python3-pip
+    elif command -v dnf &> /dev/null; then
+        sudo dnf install -y python3-pip
+    elif command -v pacman &> /dev/null; then
+        sudo pacman -S --noconfirm python-pip
+    elif command -v zypper &> /dev/null; then
+        sudo zypper install -y python3-pip
+    elif command -v apk &> /dev/null; then
+        sudo apk add --no-cache py3-pip
+    else
+        echo -e "${RED}❌ Could not install pip automatically.${NC}"
+        echo "Please install pip manually and re-run this installer."
+        exit 1
+    fi
+fi
 
 # Check Python version
-python_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-if python3 -c 'import sys; exit(0 if sys.version_info >= (3,8) else 1)'; then
+echo "🐍 Checking Python version..."
+if python3 -c 'import sys; exit(0 if sys.version_info >= (3,8) else 1)' 2>/dev/null; then
+    python_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || echo "unknown")
     echo -e "${GREEN}✅ Python $python_version (compatible)${NC}"
 else
+    python_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || echo "unknown")
     echo -e "${RED}❌ Python 3.8+ required (found $python_version)${NC}"
-    exit 1
+    echo ""
+    echo "Your system has an older version of Python."
+    echo "JellyDemon requires Python 3.8 or newer."
+    echo ""
+    read -p "Would you like to try installing a newer Python version? [Y/n]: " upgrade_python
+    upgrade_python=${upgrade_python:-Y}
+    
+    if [[ $upgrade_python =~ ^[Yy]$ ]]; then
+        install_python
+        # Re-check after installation
+        if python3 -c 'import sys; exit(0 if sys.version_info >= (3,8) else 1)' 2>/dev/null; then
+            python_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null)
+            echo -e "${GREEN}✅ Python $python_version (compatible)${NC}"
+        else
+            echo -e "${RED}❌ Python version still incompatible after installation.${NC}"
+            echo "You may need to install Python 3.8+ from source or use a different method."
+            exit 1
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Please upgrade Python to 3.8+ and re-run this installer.${NC}"
+        exit 1
+    fi
 fi
 
 # Create jellydemon user if it doesn't exist

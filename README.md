@@ -104,6 +104,7 @@ docker-compose up -d
 ```
 
 ### 🎯 **What the Installer Does**
+- ✅ **Detects and installs Python** automatically if missing (3.8+)
 - ✅ **Installs all dependencies** automatically
 - ✅ **Creates system user** and proper permissions
 - ✅ **Sets up systemd service** (Linux) or Windows service

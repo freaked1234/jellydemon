@@ -17,6 +17,53 @@ Write-Host "${Blue}🎬 JellyDemon Windows Installer${Reset}"
 Write-Host "${Blue}===============================${Reset}"
 Write-Host ""
 
+# Function to install Python
+function Install-Python {
+    Write-Host ""
+    Write-Host "${Blue}🐍 Python Installation${Reset}"
+    Write-Host "Python 3.8+ is required for JellyDemon."
+    Write-Host ""
+    
+    # Check if winget is available
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        $installChoice = Read-Host "Would you like to install Python automatically using winget? [Y/n]"
+        if ($installChoice -eq "" -or $installChoice -match "^[Yy]") {
+            Write-Host "🔧 Installing Python using winget..."
+            try {
+                winget install Python.Python.3.11 --accept-package-agreements --accept-source-agreements
+                Write-Host "${Green}✅ Python installation completed${Reset}"
+                Write-Host "Please restart PowerShell and re-run this installer."
+                Write-Host "The PATH may need to be refreshed for Python to be available."
+                exit 0
+            } catch {
+                Write-Host "${Red}❌ Failed to install Python with winget${Reset}"
+                Show-ManualInstallInstructions
+            }
+        } else {
+            Show-ManualInstallInstructions
+        }
+    } else {
+        Write-Host "${Yellow}⚠️  winget not available for automatic installation${Reset}"
+        Show-ManualInstallInstructions
+    }
+}
+
+function Show-ManualInstallInstructions {
+    Write-Host ""
+    Write-Host "${Yellow}📥 Manual Python Installation${Reset}"
+    Write-Host "Please install Python manually:"
+    Write-Host "1. Visit: https://python.org/downloads/"
+    Write-Host "2. Download Python 3.8 or newer"
+    Write-Host "3. Run the installer and check 'Add Python to PATH'"
+    Write-Host "4. Restart PowerShell and re-run this installer"
+    Write-Host ""
+    Write-Host "Alternative methods:"
+    Write-Host "- Chocolatey: choco install python"
+    Write-Host "- Scoop: scoop install python"
+    Write-Host "- Microsoft Store: Search for 'Python 3.11'"
+    exit 1
+}
+
 # Check for Python
 Write-Host "🔍 Checking prerequisites..."
 try {
@@ -28,14 +75,43 @@ try {
             Write-Host "${Green}✅ $pythonVersion (compatible)${Reset}"
         } else {
             Write-Host "${Red}❌ Python 3.8+ required (found $pythonVersion)${Reset}"
-            Write-Host "Please install Python 3.8+ from https://python.org"
-            exit 1
+            Write-Host ""
+            $upgradeChoice = Read-Host "Would you like to upgrade Python? [Y/n]"
+            if ($upgradeChoice -eq "" -or $upgradeChoice -match "^[Yy]") {
+                Install-Python
+            } else {
+                Show-ManualInstallInstructions
+            }
         }
+    } else {
+        Write-Host "${Red}❌ Could not determine Python version${Reset}"
+        Install-Python
     }
 } catch {
     Write-Host "${Red}❌ Python not found${Reset}"
-    Write-Host "Please install Python 3.8+ from https://python.org"
-    exit 1
+    Install-Python
+}
+
+# Check for pip
+Write-Host "🔍 Checking pip..."
+try {
+    $pipVersion = python -m pip --version 2>&1
+    if ($pipVersion -match "pip") {
+        Write-Host "${Green}✅ pip available${Reset}"
+    } else {
+        Write-Host "${Yellow}⚠️  Installing pip...${Reset}"
+        python -m ensurepip --upgrade
+    }
+} catch {
+    Write-Host "${Yellow}⚠️  pip not found, trying to install...${Reset}"
+    try {
+        python -m ensurepip --upgrade
+        Write-Host "${Green}✅ pip installed${Reset}"
+    } catch {
+        Write-Host "${Red}❌ Could not install pip${Reset}"
+        Write-Host "Please install pip manually and re-run this installer."
+        exit 1
+    }
 }
 
 # Check for Git
