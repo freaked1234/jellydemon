@@ -326,7 +326,7 @@ from pathlib import Path
 os.chdir(r'$InstallPath')
 
 # Run JellyDemon
-subprocess.run([r'$InstallPath\venv\Scripts\python.exe', 'jellydemon.py'])
+subprocess.run([r'$InstallPath\venv\Scripts\python.exe', 'jellydemon.py', '--config', r'$InstallPath\\config.yml'])
 "@
 
 $serviceScript | Out-File -FilePath "$InstallPath\jellydemon_service.py" -Encoding UTF8
@@ -335,7 +335,7 @@ $serviceScript | Out-File -FilePath "$InstallPath\jellydemon_service.py" -Encodi
 $startScript = @"
 @echo off
 cd /d "$InstallPath"
-venv\Scripts\python.exe jellydemon.py
+venv\Scripts\python.exe jellydemon.py --config "%~dp0config.yml"
 pause
 "@
 
@@ -344,7 +344,7 @@ $startScript | Out-File -FilePath "$InstallPath\start_jellydemon.bat" -Encoding 
 $testScript = @"
 @echo off
 cd /d "$InstallPath"
-python jellydemon.py --test
+venv\Scripts\python.exe jellydemon.py --config "%~dp0config.yml" --test
 pause
 "@
 
@@ -354,7 +354,7 @@ $shareLogsScript = @"
 @echo off
 cd /d "$InstallPath"
 echo Sharing recent logs for support...
-venv\Scripts\python.exe jellydemon.py --share-logs
+venv\Scripts\python.exe jellydemon.py --config "%~dp0config.yml" --share-logs
 pause
 "@
 
@@ -371,11 +371,11 @@ Set-Location `$InstallPath
 switch (`$Action) {
     "start" {
         Write-Host "Starting JellyDemon..."
-        venv\Scripts\python.exe jellydemon.py
+    venv\Scripts\python.exe jellydemon.py --config "$InstallPath\config.yml"
     }
     "test" {
         Write-Host "Testing JellyDemon configuration..."
-        venv\Scripts\python.exe jellydemon.py --test
+    venv\Scripts\python.exe jellydemon.py --config "$InstallPath\config.yml" --test
     }
     "health" {
         Write-Host "🏥 Running JellyDemon health check..."
@@ -383,7 +383,7 @@ switch (`$Action) {
     }
     "share-logs" {
         Write-Host "📤 Sharing recent logs for support..."
-        venv\Scripts\python.exe jellydemon.py --share-logs
+    venv\Scripts\python.exe jellydemon.py --config "$InstallPath\config.yml" --share-logs
     }
     "config" {
         Write-Host "Opening configuration file..."

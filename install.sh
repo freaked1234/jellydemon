@@ -475,7 +475,7 @@ case "\$1" in
         sudo journalctl -u jellydemon -f
         ;;
     test)
-        sudo -u $SERVICE_USER $INSTALL_DIR/venv/bin/python $INSTALL_DIR/jellydemon.py --test
+        sudo -u $SERVICE_USER $INSTALL_DIR/venv/bin/python $INSTALL_DIR/jellydemon.py --config $INSTALL_DIR/config.yml --test
         ;;
     health)
         echo "🏥 Running JellyDemon health check..."
@@ -483,7 +483,7 @@ case "\$1" in
         ;;
     share-logs)
         echo "📤 Sharing recent logs for support..."
-        sudo -u $SERVICE_USER $INSTALL_DIR/venv/bin/python $INSTALL_DIR/jellydemon.py --share-logs
+        sudo -u $SERVICE_USER $INSTALL_DIR/venv/bin/python $INSTALL_DIR/jellydemon.py --config $INSTALL_DIR/config.yml --share-logs
         ;;
     config)
         echo "Configuration file: $INSTALL_DIR/config.yml"
