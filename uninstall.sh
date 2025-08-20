@@ -20,11 +20,12 @@ echo -e "${RED}🗑️  JellyDemon Uninstaller${NC}"
 echo -e "${RED}========================${NC}"
 echo ""
 
-# Check if running as root
-if [[ $EUID -eq 0 ]]; then
-    echo -e "${RED}❌ Don't run this script as root!${NC}"
-    echo "Run as a regular user with sudo access."
-    exit 1
+# Detect if running in pipe mode
+if [ ! -t 0 ]; then
+    echo -e "${YELLOW}⚠️  Detected non-interactive mode (piped from curl)${NC}"
+    PIPE_MODE=true
+else
+    PIPE_MODE=false
 fi
 
 # Confirmation
@@ -35,8 +36,15 @@ echo "  - Configuration files (including your config.yml)"
 echo "  - Log files"
 echo "  - jellydemon user account"
 echo ""
-read -p "Are you sure you want to continue? (y/N): " -n 1 -r
-echo
+
+if [ "$PIPE_MODE" = true ]; then
+    echo -e "${BLUE}🔄 Non-interactive mode: proceeding with uninstall${NC}"
+    REPLY="y"
+else
+    read -p "Are you sure you want to continue? (y/N): " -n 1 -r
+    echo
+fi
+
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "Uninstall cancelled."
     exit 0
@@ -45,22 +53,26 @@ fi
 echo ""
 echo "🛑 Removing JellyDemon..."
 
-# Stop and disable service
-if systemctl is-active --quiet jellydemon; then
-    echo "🔄 Stopping JellyDemon service..."
-    sudo systemctl stop jellydemon
-fi
+# Stop and disable service (only if systemd is available)
+if command -v systemctl >/dev/null 2>&1; then
+    if systemctl is-active --quiet jellydemon 2>/dev/null; then
+        echo "🔄 Stopping JellyDemon service..."
+        sudo systemctl stop jellydemon
+    fi
 
-if systemctl is-enabled --quiet jellydemon; then
-    echo "🔄 Disabling JellyDemon service..."
-    sudo systemctl disable jellydemon
-fi
+    if systemctl is-enabled --quiet jellydemon 2>/dev/null; then
+        echo "🔄 Disabling JellyDemon service..."
+        sudo systemctl disable jellydemon
+    fi
 
-# Remove systemd service file
-if [ -f "/etc/systemd/system/jellydemon.service" ]; then
-    echo "🗂️  Removing systemd service..."
-    sudo rm /etc/systemd/system/jellydemon.service
-    sudo systemctl daemon-reload
+    # Remove systemd service file
+    if [ -f "/etc/systemd/system/jellydemon.service" ]; then
+        echo "🗂️  Removing systemd service..."
+        sudo rm /etc/systemd/system/jellydemon.service
+        sudo systemctl daemon-reload
+    fi
+else
+    echo "⚠️  Systemd not available - skipping service management"
 fi
 
 # Remove management script

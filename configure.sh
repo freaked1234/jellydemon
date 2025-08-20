@@ -51,8 +51,9 @@ prompt_yes_no() {
     local default="$2"
     local explanation="$3"
     
-    echo -e "${CYAN}$explanation${NC}"
-    echo ""
+    # Print explanation to stderr so it doesn't get captured
+    echo -e "${CYAN}$explanation${NC}" >&2
+    echo "" >&2
     
     while true; do
         if [ "$default" = "true" ]; then
@@ -64,9 +65,9 @@ prompt_yes_no() {
         fi
         
         case $yn in
-            [Yy]* ) echo "true"; break;;
-            [Nn]* ) echo "false"; break;;
-            * ) echo "Please answer yes or no.";;
+            [Yy]* ) printf "true"; break;;
+            [Nn]* ) printf "false"; break;;
+            * ) echo "Please answer yes or no." >&2;;
         esac
     done
 }
@@ -263,5 +264,50 @@ if [ "$DRY_RUN" = "true" ]; then
 fi
 echo "• You can edit the configuration anytime: jellydemon config"
 echo "• Test your setup with: jellydemon test"
+echo ""
+
+# Service management section
+echo -e "${YELLOW}🚀 Step 6: Service Management${NC}"
+echo "============================="
+
+# Check if we're in the installation context (script was called from installer)
+# Only offer service management if systemd is available and we have permissions
+if command -v systemctl >/dev/null 2>&1; then
+    ENABLE_AUTOSTART=$(prompt_yes_no "Enable JellyDemon to start automatically on boot?" "true" \
+    "This will enable the JellyDemon systemd service to start automatically when your system boots.
+    Recommended for production setups where you want JellyDemon running continuously.")
+    
+    if [ "$ENABLE_AUTOSTART" = "true" ]; then
+        echo "🔧 Enabling JellyDemon service for autostart..."
+        if sudo systemctl enable jellydemon >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ JellyDemon will start automatically on boot${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Could not enable autostart (may need to run: sudo systemctl enable jellydemon)${NC}"
+        fi
+    fi
+    
+    echo ""
+    START_NOW=$(prompt_yes_no "Start JellyDemon service now?" "true" \
+    "This will start the JellyDemon service immediately so you can test your configuration.
+    You can always start/stop it later with: jellydemon start/stop")
+    
+    if [ "$START_NOW" = "true" ]; then
+        echo "🚀 Starting JellyDemon service..."
+        if sudo systemctl start jellydemon >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ JellyDemon service started successfully${NC}"
+            echo ""
+            echo "🔍 Service status:"
+            sudo systemctl --no-pager status jellydemon
+        else
+            echo -e "${RED}❌ Failed to start JellyDemon service${NC}"
+            echo "You can try starting it manually with: sudo systemctl start jellydemon"
+            echo "Check logs with: sudo journalctl -u jellydemon -f"
+        fi
+    fi
+else
+    echo -e "${YELLOW}⚠️  Systemd not available - service management not supported${NC}"
+    echo "To start JellyDemon manually, run: jellydemon start"
+fi
+
 echo ""
 echo -e "${GREEN}🎉 Configuration complete!${NC}"
