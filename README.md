@@ -78,11 +78,19 @@ JellyDemon currently provides:
 
 #### **Linux/macOS:**
 ```bash
+# Interactive method (recommended - allows you to choose options):
+curl -sSL https://raw.githubusercontent.com/freaked1234/jellydemon/main/install.sh -o install.sh && bash install.sh
+
+# Quick method (uses sensible defaults automatically):
 curl -sSL https://raw.githubusercontent.com/freaked1234/jellydemon/main/install.sh | bash
 ```
 
 #### **Windows (PowerShell):**
 ```powershell
+# Interactive method (recommended):
+iwr -useb https://raw.githubusercontent.com/freaked1234/jellydemon/main/install.ps1 -OutFile install.ps1; .\install.ps1
+
+# Quick method (uses defaults):
 iwr -useb https://raw.githubusercontent.com/freaked1234/jellydemon/main/install.ps1 | iex
 ```
 

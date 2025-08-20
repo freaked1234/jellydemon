@@ -17,9 +17,42 @@ INSTALL_DIR="/opt/jellydemon"
 SERVICE_USER="jellydemon"
 REPO_URL="https://github.com/freaked1234/jellydemon.git"
 
+# Function to safely read user input (works with piped scripts)
+safe_read() {
+    local prompt="$1"
+    local default="$2"
+    local response
+    
+    # Check if we're running in a pipe (stdin is not a terminal)
+    if [ ! -t 0 ]; then
+        echo -e "${YELLOW}⚠️  Script is running in pipe mode (non-interactive)${NC}"
+        echo "Using default choice: $default"
+        echo "$default"
+        return 0
+    fi
+    
+    # Normal interactive mode
+    echo -n "$prompt"
+    read -r response
+    echo "${response:-$default}"
+}
+
 echo -e "${BLUE}🎬 JellyDemon Installer${NC}"
 echo -e "${BLUE}=====================${NC}"
 echo ""
+
+# Detect if running in pipe mode
+if [ ! -t 0 ]; then
+    echo -e "${YELLOW}⚠️  Detected non-interactive mode (piped from curl)${NC}"
+    echo "For full interactive experience, run:"
+    echo "  curl -sSL https://raw.githubusercontent.com/freaked1234/jellydemon/main/install.sh -o install.sh && bash install.sh"
+    echo ""
+    echo "Continuing with default options..."
+    echo ""
+    PIPE_MODE=true
+else
+    PIPE_MODE=false
+fi
 
 # Check for required commands
 check_command() {
@@ -36,8 +69,13 @@ install_python() {
     echo -e "${BLUE}🐍 Python Installation${NC}"
     echo "Python 3.8+ is required for JellyDemon."
     echo ""
-    read -p "Would you like to install Python automatically? [Y/n]: " install_python
-    install_python=${install_python:-Y}
+    
+    if [ "$PIPE_MODE" = true ]; then
+        echo -e "${BLUE}🔄 Non-interactive mode: defaulting to install Python${NC}"
+        install_python="Y"
+    else
+        install_python=$(safe_read "Would you like to install Python automatically? [Y/n]: " "Y")
+    fi
     
     if [[ $install_python =~ ^[Yy]$ ]]; then
         echo "🔧 Installing Python..."
@@ -109,8 +147,13 @@ if [ ${#missing_tools[@]} -gt 0 ]; then
     echo -e "${BLUE}🔧 Missing Tools Detection${NC}"
     echo "The following required tools are missing: ${missing_tools[*]}"
     echo ""
-    read -p "Would you like to install these tools automatically? [Y/n]: " install_tools
-    install_tools=${install_tools:-Y}
+    
+    if [ "$PIPE_MODE" = true ]; then
+        echo -e "${BLUE}🔄 Non-interactive mode: defaulting to install missing tools${NC}"
+        install_tools="Y"
+    else
+        install_tools=$(safe_read "Would you like to install these tools automatically? [Y/n]: " "Y")
+    fi
     
     if [[ $install_tools =~ ^[Yy]$ ]]; then
         echo "🔧 Installing missing tools..."
@@ -222,7 +265,13 @@ if [ -d "$INSTALL_DIR" ]; then
     echo "2. Update installation (keeps config if it exists)"
     echo "3. Cancel installation"
     echo ""
-    read -p "Choose an option [1/2/3]: " install_choice
+    
+    if [ "$PIPE_MODE" = true ]; then
+        echo -e "${BLUE}🔄 Non-interactive mode: defaulting to update installation${NC}"
+        install_choice="2"
+    else
+        install_choice=$(safe_read "Choose an option [1/2/3]: " "2")
+    fi
     
     case $install_choice in
         1)

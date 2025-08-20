@@ -17,6 +17,38 @@ Write-Host "${Blue}🎬 JellyDemon Windows Installer${Reset}"
 Write-Host "${Blue}===============================${Reset}"
 Write-Host ""
 
+# Detect if running in pipe mode (from iwr | iex)
+$PipeMode = $false
+if ($MyInvocation.InvocationName -eq "&") {
+    Write-Host "${Yellow}⚠️  Detected non-interactive mode (piped from iwr)${Reset}"
+    Write-Host "For full interactive experience, download and run locally:"
+    Write-Host "  iwr -useb https://raw.githubusercontent.com/freaked1234/jellydemon/main/install.ps1 -OutFile install.ps1"
+    Write-Host "  .\install.ps1"
+    Write-Host ""
+    Write-Host "Continuing with default options..."
+    Write-Host ""
+    $PipeMode = $true
+}
+
+# Function to safely read user input (works with piped scripts)
+function Safe-Read {
+    param(
+        [string]$Prompt,
+        [string]$Default
+    )
+    
+    if ($PipeMode) {
+        Write-Host "${Yellow}⚠️  Non-interactive mode: using default choice: $Default${Reset}"
+        return $Default
+    }
+    
+    $response = Read-Host $Prompt
+    if ([string]::IsNullOrWhiteSpace($response)) { 
+        return $Default 
+    }
+    return $response
+}
+
 # Function to install Python
 function Install-Python {
     Write-Host ""
