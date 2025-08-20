@@ -237,7 +237,19 @@ if ($UpdateInstall -and (Test-Path (Join-Path $InstallPath ".git"))) {
 # Install Python dependencies
 Write-Host "📦 Installing Python dependencies..."
 Set-Location $InstallPath
-python -m pip install -r requirements.txt
+
+# Create virtual environment
+Write-Host "🔧 Creating virtual environment..."
+python -m venv venv
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "${Red}❌ Failed to create virtual environment. Please ensure Python is properly installed.${Reset}"
+    exit 1
+}
+
+# Install dependencies in virtual environment
+Write-Host "📦 Installing packages in virtual environment..."
+& ".\venv\Scripts\pip.exe" install --upgrade pip
+& ".\venv\Scripts\pip.exe" install -r requirements.txt
 
 # Interactive configuration setup
 Write-Host "⚙️  Setting up configuration..."
@@ -314,7 +326,7 @@ from pathlib import Path
 os.chdir(r'$InstallPath')
 
 # Run JellyDemon
-subprocess.run([sys.executable, 'jellydemon.py'])
+subprocess.run([r'$InstallPath\venv\Scripts\python.exe', 'jellydemon.py'])
 "@
 
 $serviceScript | Out-File -FilePath "$InstallPath\jellydemon_service.py" -Encoding UTF8
@@ -323,7 +335,7 @@ $serviceScript | Out-File -FilePath "$InstallPath\jellydemon_service.py" -Encodi
 $startScript = @"
 @echo off
 cd /d "$InstallPath"
-python jellydemon.py
+venv\Scripts\python.exe jellydemon.py
 pause
 "@
 
@@ -342,7 +354,7 @@ $shareLogsScript = @"
 @echo off
 cd /d "$InstallPath"
 echo Sharing recent logs for support...
-python jellydemon.py --share-logs
+venv\Scripts\python.exe jellydemon.py --share-logs
 pause
 "@
 
@@ -359,19 +371,19 @@ Set-Location `$InstallPath
 switch (`$Action) {
     "start" {
         Write-Host "Starting JellyDemon..."
-        python jellydemon.py
+        venv\Scripts\python.exe jellydemon.py
     }
     "test" {
         Write-Host "Testing JellyDemon configuration..."
-        python jellydemon.py --test
+        venv\Scripts\python.exe jellydemon.py --test
     }
     "health" {
         Write-Host "🏥 Running JellyDemon health check..."
-        python health_check.py
+        venv\Scripts\python.exe health_check.py
     }
     "share-logs" {
         Write-Host "📤 Sharing recent logs for support..."
-        python jellydemon.py --share-logs
+        venv\Scripts\python.exe jellydemon.py --share-logs
     }
     "config" {
         Write-Host "Opening configuration file..."

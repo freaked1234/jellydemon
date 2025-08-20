@@ -314,7 +314,44 @@ fi
 
 # Install Python dependencies
 echo "📦 Installing Python dependencies..."
-sudo -u "$SERVICE_USER" python3 -m pip install --user -r "$INSTALL_DIR/requirements.txt"
+
+# Create virtual environment
+echo "🔧 Creating virtual environment..."
+if ! sudo -u "$SERVICE_USER" python3 -m venv "$INSTALL_DIR/venv" 2>/dev/null; then
+    echo -e "${RED}❌ Failed to create virtual environment${NC}"
+    echo "🔧 Installing python3-venv package..."
+    
+    # Install venv package based on detected package manager
+    if command -v apt &> /dev/null; then
+        sudo apt update
+        sudo apt install -y python3-venv python3-full
+    elif command -v yum &> /dev/null; then
+        sudo yum install -y python3-venv
+    elif command -v dnf &> /dev/null; then
+        sudo dnf install -y python3-venv
+    elif command -v pacman &> /dev/null; then
+        sudo pacman -S --noconfirm python-virtualenv
+    elif command -v zypper &> /dev/null; then
+        sudo zypper install -y python3-venv
+    elif command -v apk &> /dev/null; then
+        sudo apk add --no-cache python3-venv
+    else
+        echo -e "${RED}❌ Cannot install python3-venv automatically. Please install it manually.${NC}"
+        exit 1
+    fi
+    
+    # Try creating venv again
+    echo "🔧 Retrying virtual environment creation..."
+    if ! sudo -u "$SERVICE_USER" python3 -m venv "$INSTALL_DIR/venv"; then
+        echo -e "${RED}❌ Still failed to create virtual environment. Please check your Python installation.${NC}"
+        exit 1
+    fi
+fi
+
+# Install dependencies in virtual environment
+echo "📦 Installing packages in virtual environment..."
+sudo -u "$SERVICE_USER" "$INSTALL_DIR/venv/bin/pip" install --upgrade pip
+sudo -u "$SERVICE_USER" "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt"
 
 # Interactive configuration setup
 echo "⚙️  Setting up configuration..."
@@ -389,7 +426,7 @@ Type=simple
 User=$SERVICE_USER
 Group=$SERVICE_USER
 WorkingDirectory=$INSTALL_DIR
-ExecStart=/usr/bin/python3 $INSTALL_DIR/jellydemon.py
+ExecStart=$INSTALL_DIR/venv/bin/python $INSTALL_DIR/jellydemon.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -438,15 +475,15 @@ case "\$1" in
         sudo journalctl -u jellydemon -f
         ;;
     test)
-        sudo -u $SERVICE_USER python3 $INSTALL_DIR/jellydemon.py --test
+        sudo -u $SERVICE_USER $INSTALL_DIR/venv/bin/python $INSTALL_DIR/jellydemon.py --test
         ;;
     health)
         echo "🏥 Running JellyDemon health check..."
-        sudo -u $SERVICE_USER python3 $INSTALL_DIR/health_check.py
+        sudo -u $SERVICE_USER $INSTALL_DIR/venv/bin/python $INSTALL_DIR/health_check.py
         ;;
     share-logs)
         echo "📤 Sharing recent logs for support..."
-        sudo -u $SERVICE_USER python3 $INSTALL_DIR/jellydemon.py --share-logs
+        sudo -u $SERVICE_USER $INSTALL_DIR/venv/bin/python $INSTALL_DIR/jellydemon.py --share-logs
         ;;
     config)
         echo "Configuration file: $INSTALL_DIR/config.yml"
