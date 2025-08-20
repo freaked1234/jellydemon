@@ -17,26 +17,6 @@ INSTALL_DIR="/opt/jellydemon"
 SERVICE_USER="jellydemon"
 REPO_URL="https://github.com/freaked1234/jellydemon.git"
 
-# Function to safely read user input (works with piped scripts)
-safe_read() {
-    local prompt="$1"
-    local default="$2"
-    local response
-    
-    # Check if we're running in a pipe (stdin is not a terminal)
-    if [ ! -t 0 ]; then
-        echo -e "${YELLOW}⚠️  Script is running in pipe mode (non-interactive)${NC}"
-        echo "Using default choice: $default"
-        echo "$default"
-        return 0
-    fi
-    
-    # Normal interactive mode
-    echo -n "$prompt"
-    read -r response
-    echo "${response:-$default}"
-}
-
 echo -e "${BLUE}🎬 JellyDemon Installer${NC}"
 echo -e "${BLUE}=====================${NC}"
 echo ""
@@ -74,7 +54,8 @@ install_python() {
         echo -e "${BLUE}🔄 Non-interactive mode: defaulting to install Python${NC}"
         install_python="Y"
     else
-        install_python=$(safe_read "Would you like to install Python automatically? [Y/n]: " "Y")
+        read -p "Would you like to install Python automatically? [Y/n]: " install_python
+        install_python=${install_python:-Y}
     fi
     
     if [[ $install_python =~ ^[Yy]$ ]]; then
@@ -152,7 +133,8 @@ if [ ${#missing_tools[@]} -gt 0 ]; then
         echo -e "${BLUE}🔄 Non-interactive mode: defaulting to install missing tools${NC}"
         install_tools="Y"
     else
-        install_tools=$(safe_read "Would you like to install these tools automatically? [Y/n]: " "Y")
+        read -p "Would you like to install these tools automatically? [Y/n]: " install_tools
+        install_tools=${install_tools:-Y}
     fi
     
     if [[ $install_tools =~ ^[Yy]$ ]]; then
@@ -270,7 +252,12 @@ if [ -d "$INSTALL_DIR" ]; then
         echo -e "${BLUE}🔄 Non-interactive mode: defaulting to update installation${NC}"
         install_choice="2"
     else
-        install_choice=$(safe_read "Choose an option [1/2/3]: " "2")
+        read -p "Choose an option [1/2/3]: " install_choice
+        # Validate input
+        while [[ ! "$install_choice" =~ ^[123]$ ]]; do
+            echo -e "${RED}❌ Invalid choice. Please enter 1, 2, or 3.${NC}"
+            read -p "Choose an option [1/2/3]: " install_choice
+        done
     fi
     
     case $install_choice in
