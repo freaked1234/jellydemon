@@ -17,13 +17,6 @@ Write-Host "${Blue}🎬 JellyDemon Windows Installer${Reset}"
 Write-Host "${Blue}===============================${Reset}"
 Write-Host ""
 
-# Check if running as administrator
-if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    Write-Host "${Red}❌ This script requires administrator privileges${Reset}"
-    Write-Host "Please run PowerShell as Administrator and try again."
-    exit 1
-}
-
 # Check for Python
 Write-Host "🔍 Checking prerequisites..."
 try {

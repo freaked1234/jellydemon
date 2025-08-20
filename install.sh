@@ -21,13 +21,6 @@ echo -e "${BLUE}🎬 JellyDemon Installer${NC}"
 echo -e "${BLUE}=====================${NC}"
 echo ""
 
-# Check if running as root
-if [[ $EUID -eq 0 ]]; then
-    echo -e "${RED}❌ Don't run this script as root!${NC}"
-    echo "Run as a regular user with sudo access."
-    exit 1
-fi
-
 # Check for required commands
 check_command() {
     if ! command -v $1 &> /dev/null; then

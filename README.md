@@ -81,7 +81,7 @@ JellyDemon currently provides:
 curl -sSL https://raw.githubusercontent.com/freaked1234/jellydemon/main/install.sh | bash
 ```
 
-#### **Windows (PowerShell as Administrator):**
+#### **Windows (PowerShell):**
 ```powershell
 iwr -useb https://raw.githubusercontent.com/freaked1234/jellydemon/main/install.ps1 | iex
 ```
