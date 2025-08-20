@@ -1,5 +1,30 @@
 # JellyDemon - Intelligent Jellyfin Bandwidth Management
 
+## 🧪 **Early Beta - Seeking Testers!**
+
+**We need your help testing JellyDemon across different systems and configurations!**
+
+This is an **early beta release** and we're looking for testers to help validate the daemon's performance across various:
+- Operating systems
+- Jellyfin server configurations and versions  
+- Network environments and hardware setups
+- Different bandwidth management scenarios
+
+**🔬 What we need from testers:**
+- Regular feedback on daemon performance and stability
+- Report any issues, crashes, or unexpected behavior
+- Share your experience with installation and configuration
+- Submit logs when experiencing problems or unusual behavior
+
+**📤 Easy Log Sharing:**
+JellyDemon includes a built-in log sharing feature that automatically uploads anonymized logs to help with support:
+```bash
+jellydemon share-logs  # Or: python jellydemon.py --share-logs
+```
+This generates a shareable URL with your sanitized logs (all usernames, IPs, and API keys are automatically removed for privacy). **Please include this URL with any feedback or issue reports** - it helps us diagnose problems much faster!
+
+---
+
 A Python daemon that automatically manages Jellyfin user bandwidth limits for external streamers based on configurable bandwidth allocation algorithms.
 
 ## Current Status: Public Beta v1.0
@@ -49,51 +74,151 @@ JellyDemon currently provides:
 
 ## Installation
 
-### Quick Setup (Same Machine as Jellyfin - Recommended)
+### 🚀 **One-Line Installation (Recommended)**
 
+#### **Linux/macOS:**
 ```bash
-# 1. SSH into your Jellyfin server or access it directly
-ssh user@your-jellyfin-server
-
-# 2. Clone/download this project
-git clone <repository-url> jellydemon
-cd jellydemon
-
-# 3. Run the setup script
-python setup.py
-
-# 4. Edit configuration (Jellyfin will be localhost)
-nano config.yml
-
-# 5. Test connectivity
-python jellydemon.py --test
-
-# 6. Run in dry-run mode first
-python jellydemon.py --dry-run
+curl -sSL https://raw.githubusercontent.com/freaked1234/jellydemon/main/install.sh | bash
 ```
 
-### Manual Setup
+#### **Windows (PowerShell as Administrator):**
+```powershell
+iwr -useb https://raw.githubusercontent.com/freaked1234/jellydemon/main/install.ps1 | iex
+```
 
-1. **Install Python dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+#### **Python Package (pip) - Coming Soon:**
+```bash
+pip install jellydemon
+jellydemon --setup  # Interactive setup wizard
+```
 
-2. **Create configuration:**
-   ```bash
-   cp config.example.yml config.yml
-   nano config.yml
-   ```
+#### **Docker (Any Platform):**
+```bash
+# Quick start with Docker Compose
+git clone https://github.com/freaked1234/jellydemon.git
+cd jellydemon
+mkdir config logs
+cp config.example.yml config/config.yml
+# Edit config/config.yml with your settings
+docker-compose up -d
+```
 
-3. **Configure your settings:**
-   - **Jellyfin settings**: Add your server URL and API key
-   - **Network ranges**: Configure your internal IP ranges
-   - **Bandwidth settings**: Set your total upload bandwidth and adjust limits and algorithm preferences
+### 🎯 **What the Installer Does**
+- ✅ **Installs all dependencies** automatically
+- ✅ **Creates system user** and proper permissions
+- ✅ **Sets up systemd service** (Linux) or Windows service
+- ✅ **Interactive configuration wizard** - no manual editing needed!
+- ✅ **Guides you through all settings** with explanations
+- ✅ **Tests your Jellyfin connection** automatically
+- ✅ **Creates management commands** (`jellydemon start/stop/status`)
+- ✅ **Configures logging** and security settings
+- ✅ **Enables dry-run mode** by default for safe testing
 
-4. **Get Jellyfin API Key:**
-   - Go to Jellyfin Admin Dashboard → API Keys
-   - Create a new API key for JellyDemon
-   - Copy the key to your config.yml
+### 📱 **Super Easy Setup**
+
+The installer includes an **interactive configuration wizard** that guides you through:
+
+✅ **Jellyfin Connection** - Server address and API key setup  
+✅ **Bandwidth Settings** - Speed test guidance and bandwidth allocation  
+✅ **Network Configuration** - Automatic detection of your local network  
+✅ **Privacy Settings** - Log anonymization for safe sharing  
+✅ **Testing Mode** - Dry-run enabled by default for safety
+
+**No more manual config file editing!** Just answer a few questions and you're ready to go.
+
+After installation, just three commands:
+
+```bash
+# 1. Test your settings (automatic if you used the wizard)
+jellydemon test
+
+# 2. Start the service (dry-run mode enabled for safety)
+jellydemon start
+
+# 3. Monitor and verify it's working
+jellydemon logs
+```
+
+### 🔧 **Management Commands**
+
+After installation, you get simple commands:
+
+```bash
+jellydemon start         # Start the service
+jellydemon stop          # Stop the service  
+jellydemon restart       # Restart the service
+jellydemon status        # Check if running
+jellydemon logs          # View live logs
+jellydemon test          # Test configuration
+jellydemon share-logs    # Upload logs to pastebin for support
+jellydemon config        # Show configuration options
+jellydemon reconfigure   # Run configuration wizard again
+jellydemon enable        # Auto-start on boot
+jellydemon disable       # Don't auto-start
+```
+
+### 📤 **Easy Log Sharing for Support**
+
+When you need help, sharing logs is now effortless:
+
+```bash
+# One command uploads anonymized logs and gives you a shareable URL
+jellydemon share-logs
+
+# Output:
+# 🔍 Collecting logs and system information...
+# 📦 Collected 2,156 words of log data
+# 🌐 Uploading to pastebin service...
+# ✅ Logs shared successfully!
+# 🔗 Share this URL: https://ix.io/abc123
+# 💡 Include this URL when reporting issues or asking for help
+```
+
+**What gets shared:**
+- ✅ **Recent logs** (last 24 hours, anonymized)
+- ✅ **System information** (OS, Python version, JellyDemon version)
+- ✅ **Sanitized configuration** (API keys redacted)
+- ✅ **Basic diagnostics** (file checks, connectivity status)
+
+**Privacy protected:**
+- ✅ **Automatic anonymization** (usernames, IPs, session IDs replaced)
+- ✅ **API keys redacted** from configuration
+- ✅ **Expires automatically** (7 days max)
+- ✅ **No personal data** exposed
+
+### 🔄 **Easy Reconfiguration**
+
+Need to change settings? No problem:
+
+```bash
+# Run the interactive wizard again
+jellydemon reconfigure
+
+# Or edit manually  
+jellydemon config
+```
+
+### 🐳 **Docker Quick Start**
+
+For the easiest possible setup:
+
+```bash
+# Download and start in one command
+curl -sSL https://raw.githubusercontent.com/freaked1234/jellydemon/main/docker-compose.yml -o docker-compose.yml
+mkdir config logs
+curl -sSL https://raw.githubusercontent.com/freaked1234/jellydemon/main/config.example.yml -o config/config.yml
+
+# Edit config/config.yml with your Jellyfin details, then:
+docker-compose up -d
+```
+
+### 🔑 **Getting Your Jellyfin API Key**
+
+1. Open Jellyfin Admin Dashboard
+2. Go to **Advanced** → **API Keys**  
+3. Click **"+"** to create new key
+4. Name it "JellyDemon"
+5. Copy the generated key to your config file
 
 ### Testing & Validation
 
@@ -239,7 +364,56 @@ When reporting issues during public testing:
 
 These limitations will be addressed in the router integration update (v2.0).
 
-## Troubleshooting
+## Uninstallation
+
+### 🗑️ **Easy Removal**
+
+#### **Linux/macOS:**
+```bash
+curl -sSL https://raw.githubusercontent.com/freaked1234/jellydemon/main/uninstall.sh | bash
+```
+
+#### **Windows:**
+```powershell
+# Remove installation directory (adjust path if different)
+Remove-Item -Path "$env:ProgramFiles\JellyDemon" -Recurse -Force
+```
+
+#### **Docker:**
+```bash
+docker-compose down
+docker rmi jellydemon_jellydemon  # Remove image
+rm -rf config logs  # Remove data (optional)
+```
+
+The uninstaller will:
+- ✅ Stop and remove the service
+- ✅ Back up your configuration 
+- ✅ Remove all files and user accounts
+- ✅ Clean up system integration
+
+## Getting Help & Troubleshooting
+
+### 🆘 **Need Support?**
+
+**The easiest way to get help:**
+
+```bash
+# Share your logs instantly for support
+jellydemon share-logs
+
+# Docker users:
+docker exec jellydemon python jellydemon.py --share-logs
+```
+
+This uploads **anonymized logs** and gives you a URL to include when asking for help on:
+- **GitHub Issues**: https://github.com/freaked1234/jellydemon/issues
+- **Reddit**: r/jellyfin community
+- **Discord**: Jellyfin support servers  
+- **Email**: Direct support
+
+**What gets shared:** Recent logs, system info, sanitized config, diagnostics  
+**Privacy:** All usernames, IPs, and API keys are automatically anonymized
 
 ### Common Issues
 

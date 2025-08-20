@@ -1,0 +1,15 @@
+# Global ownership
+* @freaked1234
+
+# Security-sensitive files require extra review
+SECURITY.md @freaked1234
+.github/workflows/* @freaked1234
+requirements.txt @freaked1234
+
+# Core modules
+modules/ @freaked1234
+jellydemon.py @freaked1234
+
+# Configuration and setup
+setup.py @freaked1234
+config.example.yml @freaked1234

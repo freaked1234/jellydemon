@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  jellydemon:
+    build: .
+    # Or use pre-built image when available:
+    # image: freaked1234/jellydemon:latest
+    container_name: jellydemon
+    restart: unless-stopped
+    
+    # Mount configuration and logs
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+      - jellydemon-data:/app/data
+    
+    # Environment variables
+    environment:
+      - JELLYDEMON_CONFIG_FILE=/app/config/config.yml
+      - PYTHONUNBUFFERED=1
+    
+    # For log sharing: docker exec jellydemon python jellydemon.py --share-logs
+    
+    # Network mode for local Jellyfin access
+    network_mode: host
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python3", "jellydemon.py", "--test"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Web configuration interface (future feature)
+  # jellydemon-web:
+  #   build: ./web
+  #   container_name: jellydemon-web
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8080:8080"
+  #   volumes:
+  #     - ./config:/app/config
+  #   depends_on:
+  #     - jellydemon
+
+volumes:
+  jellydemon-data:

@@ -7,7 +7,7 @@ import logging.handlers
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .anonymizer import LogAnonymizer, AnonymizingFormatter
+from modules.anonymizer import LogAnonymizer, AnonymizingFormatter
 
 if TYPE_CHECKING:
     from .config import Config

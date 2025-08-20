@@ -225,8 +225,25 @@ def main():
                        help="Run in dry-run mode (no changes applied)")
     parser.add_argument("--test", action="store_true",
                        help="Test connectivity and exit")
+    parser.add_argument("--share-logs", action="store_true",
+                       help="Share recent logs for support (uploads to pastebin)")
+    parser.add_argument("--log-hours", type=int, default=24,
+                       help="Hours of logs to include when sharing (default: 24)")
+    parser.add_argument("--max-log-lines", type=int, default=1000,
+                       help="Maximum log lines to include when sharing (default: 1000)")
     
     args = parser.parse_args()
+    
+    # Handle log sharing separately (doesn't need full daemon initialization)
+    if args.share_logs:
+        try:
+            from modules.log_sharer import LogSharer
+            sharer = LogSharer(args.config)
+            result = sharer.share_logs(args.log_hours, args.max_log_lines)
+            return 0 if result else 1
+        except Exception as e:
+            print(f"❌ Failed to share logs: {e}")
+            return 1
     
     try:
         daemon = JellyDemon(args.config)

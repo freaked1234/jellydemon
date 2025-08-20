@@ -1,8 +1,19 @@
-# Configuration files with sensitive information
+# Security - Configuration files with sensitive information
 config.yml
+*.key
+*.pem
+*.p12
+*.pfx
+secrets.yml
+secrets.json
+.env
+.env.local
+.env.production
 
-# Log files
+# Log files and runtime data
 *.log
+*.log.*
+jellydemon.log*
 
 # Anonymization mapping (contains user mappings)
 anonymization_map.json
@@ -34,6 +45,7 @@ MANIFEST
 venv/
 env/
 ENV/
+.venv/
 
 # IDE files
 .vscode/
@@ -48,4 +60,18 @@ Thumbs.db
 
 # Runtime files
 *.pid
-jellydemon.service 
+jellydemon.service
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Test artifacts
+.coverage
+.pytest_cache/
+.tox/
+htmlcov/
+
+# Documentation builds
+docs/_build/ 
